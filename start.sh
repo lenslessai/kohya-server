@@ -51,7 +51,9 @@ start_jupyter() {
 }
 
 start_kohya() {
-  git clone https://github.com/bmaltais/kohya_ss.git && cd kohya_ss && ./setup-runpod.sh
+  git clone https://github.com/bmaltais/kohya_ss.git 
+  cd kohya_ss
+  ./setup-runpod.sh
 }
 
 # ---------------------------------------------------------------------------- #
