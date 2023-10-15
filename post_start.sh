@@ -37,9 +37,11 @@ rm "$INPUT_REG_DIR/man_4321_imgs_1024x1024px.zip"
 
 cd /kohya_ss
 mkdir -p /output/model
+mkdir -p /output/logs
 
 source venv/bin/activate
-accelerate launch \
+
+: 'accelerate launch \
     --num_cpu_threads_per_process=2 \
     "./sdxl_train_network.py" \
     --pretrained_model_name_or_path="/sd-models/sd_xl_base_1.0.safetensors" \
@@ -47,7 +49,7 @@ accelerate launch \
     --reg_data_dir="/job/input/reg" \
     --resolution="1024,1024" \
     --output_dir="/output/model" \
-    --logging_dir="/job/input/log" \
+    --logging_dir="/job/output/logs" \
     --network_alpha="1" \
     --save_model_as=safetensors \
     --network_module=networks.lora \
@@ -74,3 +76,4 @@ accelerate launch \
     --xformers \
     --bucket_no_upscale \
     --noise_offset=0.0
+'
