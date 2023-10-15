@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e  # Exit the script if any statement returns a non-true return value
+#set -e  # Exit the script if any statement returns a non-true return value
 # https://github.com/ashleykleynhans/kohya-docker/tree/main
 # bash -c 'curl -O -L https://raw.githubusercontent.com/lenslessai/start-model-creator-pod/main/pre-start.sh && chmod 777 pre-start.sh && ./start.sh'
 
