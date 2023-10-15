@@ -23,30 +23,31 @@ echo "Configure aws"
 aws configure set aws_access_key_id $AWS_ACCESS_KEY && aws configure set aws_secret_access_key $AWS_SECRET_KEY && aws configure set region "us-east-1" && aws configure set output "text" 
 
 echo "Download photos from s3"
-mkdir -p '/workspace/output/img/25_ohwx man'
-aws s3 sync s3://$BUCKET_PHOTOS/photos/$GENERATION_ID/ '/workspace/output/img/25_ohwx man'
+mkdir -p '/job/input/img/25_ohwx man'
+aws s3 sync s3://$BUCKET_PHOTOS/photos/$GENERATION_ID/ '/job/input/img/25_ohwx man'
 
 # regularization images
 DOWNLOAD_REG_URL="https://huggingface.co/MonsterMMORPG/SECourses/resolve/main/man_4321_imgs_1024x1024px.zip"
-OUTPUT_REG_DIR="/workspace/output/reg/1_man"
-mkdir -p "$OUTPUT_REG_DIR"
-wget "$DOWNLOAD_REG_URL" -P "$OUTPUT_REG_DIR"
-unzip -j "$OUTPUT_REG_DIR/man_4321_imgs_1024x1024px.zip" -d "$OUTPUT_REG_DIR"
-rm "$OUTPUT_REG_DIR/man_4321_imgs_1024x1024px.zip"
+INPUT_REG_DIR="/job/input/reg/1_man"
+mkdir -p "$INPUT_REG_DIR"
+wget "$DOWNLOAD_REG_URL" -P "$INPUT_REG_DIR"
+unzip -j "$INPUT_REG_DIR/man_4321_imgs_1024x1024px.zip" -d "$INPUT_REG_DIR"
+rm "$INPUT_REG_DIR/man_4321_imgs_1024x1024px.zip"
 
 
-cd /workspace/kohya_ss
+cd /kohya_ss
+mkdir -p /output/model
 
 source venv/bin/activate
 accelerate launch \
     --num_cpu_threads_per_process=2 \
     "./sdxl_train_network.py" \
-    --pretrained_model_name_or_path="/workspace/sd_xl_base_1.0.safetensors" \
-    --train_data_dir="/workspace/output/img" \
-    --reg_data_dir="/workspace/output/reg" \
+    --pretrained_model_name_or_path="/sd-models/sd_xl_base_1.0.safetensors" \
+    --train_data_dir="/job/input/img" \
+    --reg_data_dir="/job/input/reg" \
     --resolution="1024,1024" \
-    --output_dir="/workspace/output/model" \
-    --logging_dir="/workspace/output/log" \
+    --output_dir="/output/model" \
+    --logging_dir="/job/input/log" \
     --network_alpha="1" \
     --save_model_as=safetensors \
     --network_module=networks.lora \
