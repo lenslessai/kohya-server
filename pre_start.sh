@@ -8,6 +8,8 @@ echo "Configuring accelerate..."
 mkdir -p /root/.cache/huggingface/accelerate
 mv /accelerate.yaml /root/.cache/huggingface/accelerate/default_config.yaml
 pip install runpod
+pip install boto3
+
 #if [[ ${DISABLE_AUTOLAUNCH} ]]
 #then
 #    echo "Auto launching is disabled so the application will not be started automatically"

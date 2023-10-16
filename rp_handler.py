@@ -2,6 +2,7 @@ import time
 import os
 import runpod
 import requests
+import boto3
 
 command = [
     "accelerate", "launch",
