@@ -96,7 +96,7 @@ def count_files_with_extension(directory, extension):
         return -1 
 
 
-def execute_command_and_log_output(command, log_file="accelerate_launch.log"):
+def execute_command_and_log_output(event, command, log_file="accelerate_launch.log"):
     with open(log_file, "w") as log:
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
@@ -104,7 +104,7 @@ def execute_command_and_log_output(command, log_file="accelerate_launch.log"):
                 log.write(line)
                 print(line, end="")
                 update_number = count_files_with_extension("/output/model", "safetensors")
-                runpod.serverless.progress_update(job, f"Progress {update_number}/8")
+                runpod.serverless.progress_update(event, f"Progress {update_number}/8")
 
             process.wait()
 
@@ -113,15 +113,15 @@ def execute_command_and_log_output(command, log_file="accelerate_launch.log"):
             else:
                 raise Exception("accelerate command failed with return code: " + process.returncode)
 
-def run_inference(input):
+def run_inference(event):
     '''
     Run inference on a request.
     '''
-    model_id = input["model_id"]
+    model_id = event["input"]["model_id"]
 
     downloadImages(model_id)
-    execute_command_and_log_output(command)
-    runpod.serverless.progress_update(job, f"Progress 8/8")
+    execute_command_and_log_output(event, command)
+    runpod.serverless.progress_update(event, f"Progress 8/8")
     return "{}"
 
 
@@ -133,7 +133,7 @@ def handler(event):
     This is the handler function that will be called by the serverless.
     '''
 
-    json = run_inference(event["input"])
+    json = run_inference(event)
 
     # return the output that you want to be returned like pre-signed URLs to output artifacts
     return json
