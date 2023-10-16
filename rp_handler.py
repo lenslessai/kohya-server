@@ -4,6 +4,7 @@ import runpod
 import requests
 import boto3
 import subprocess
+import zipfile
 
 command = [
     "accelerate", "launch",
@@ -27,7 +28,8 @@ command = [
     "--learning_rate=0.0004",
     "--lr_scheduler=constant",
     "--train_batch_size=1",
-    "--max_train_steps=6800",
+   # "--max_train_steps=6800",
+    "--max_train_steps=80",
     "--save_every_n_epochs=1",
     "--mixed_precision=bf16",
     "--save_precision=bf16",
@@ -80,7 +82,33 @@ def downloadImages(generation_id):
         local_file_path = os.path.join(local_directory, os.path.basename(object_key))
         s3.download_file(bucket_name, object_key, local_file_path)
 
+    directory_contents = os.listdir(local_directory)
+    print("content of {local_directory}:")
+    for item in directory_contents:
+        print(item)
     print("Download photos from S3 complete")
+
+
+def download_and_process_reg_images(url, target_directory):
+    if not os.path.exists(target_directory):
+        os.makedirs(target_directory)
+
+    file_name = os.path.join(target_directory, os.path.basename(url))
+
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(file_name, 'wb') as file:
+            file.write(response.content)
+        print(f"Reg images file downloaded to {file_name}")
+
+        with zipfile.ZipFile(file_name, 'r') as zip_ref:
+            zip_ref.extractall(target_directory)
+        print("Reg images file unzipped")
+
+        os.remove(file_name)
+        print("Downloaded Reg images file removed")
+    else:
+        raise ValueError("Failed to download reg images. Status code: {response.status_code}")
 
 
 def count_files_with_extension(directory, extension):
@@ -118,8 +146,11 @@ def run_inference(event):
     Run inference on a request.
     '''
     model_id = event["input"]["model_id"]
+    download_reg_imgs_url = "https://huggingface.co/MonsterMMORPG/SECourses/resolve/main/man_4321_imgs_1024x1024px.zip"
+    reg_imgs_target_directory = "/job/input/reg/1_man"
 
     downloadImages(model_id)
+    download_and_process_reg_images(download_reg_imgs_url, reg_imgs_target_directory)
     execute_command_and_log_output(event, command)
     runpod.serverless.progress_update(event, f"Progress 8/8")
     return "{}"
