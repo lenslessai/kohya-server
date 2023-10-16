@@ -3,6 +3,7 @@ import os
 import runpod
 import requests
 import boto3
+import subprocess
 
 command = [
     "accelerate", "launch",
