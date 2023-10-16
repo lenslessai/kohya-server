@@ -3,7 +3,7 @@ import subprocess
 command = [
     "accelerate", "launch",
     "--num_cpu_threads_per_process=2",
-    "./sdxl_train_network.py",
+    "./kohya_ss/sdxl_train_network.py",
     "--pretrained_model_name_or_path=/sd-models/sd_xl_base_1.0.safetensors1111",
     "--train_data_dir=/job/input/img",
     "--reg_data_dir=/job/input/reg",
