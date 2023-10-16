@@ -69,9 +69,15 @@ def downloadImages(generation_id):
     )
 
     s3 = session.client('s3')
-    directory = '/job/input/img/25_ohwx man'
-    os.makedirs(directory, exist_ok=True)
-    s3.download_file(bucket_name, f'photos/{generation_id}/', directory)
+    local_directory = '/job/input/img/25_ohwx man'
+    os.makedirs(local_directory, exist_ok=True)
+    #s3.download_file(bucket_name, f'photos/{generation_id}/', directory)
+
+    objects = s3.list_objects_v2(Bucket=bucket_name, Prefix="f'photos/{generation_id}")
+    for obj in objects.get('Contents', []):
+        object_key = obj['Key']
+        local_file_path = os.path.join(local_directory, os.path.basename(object_key))
+        s3.download_file(bucket_name, object_key, local_file_path)
 
     print("Download photos from S3 complete")
 
