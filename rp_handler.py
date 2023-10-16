@@ -1,8 +1,7 @@
 import time
-
+import os
 import runpod
 import requests
-from requests.adapters import HTTPAdapter, Retry
 
 command = [
     "accelerate", "launch",
