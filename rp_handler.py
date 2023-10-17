@@ -6,13 +6,14 @@ import boto3
 import subprocess
 import zipfile
 
+# "--max_train_steps=6800",
 command = [
     "accelerate", "launch",
     "--num_cpu_threads_per_process=2",
     "./kohya_ss/sdxl_train_network.py",
-    "--pretrained_model_name_or_path=/sd-models/sd_xl_base_1.0.safetensors1111",
+    "--pretrained_model_name_or_path=/sd-models/sd_xl_base_1.0.safetensors",
     "--train_data_dir=/job/input/img",
-    "--reg_data_dir=/job/input/reg",
+    "--reg_data_dir=/job/input/reg/man_4321_imgs_1024x1024px",
     "--resolution=1024,1024",
     "--output_dir=/output/model",
     "--logging_dir=/job/output/logs",
@@ -28,7 +29,6 @@ command = [
     "--learning_rate=0.0004",
     "--lr_scheduler=constant",
     "--train_batch_size=1",
-   # "--max_train_steps=6800",
     "--max_train_steps=80",
     "--save_every_n_epochs=1",
     "--mixed_precision=bf16",
@@ -91,6 +91,7 @@ def downloadImages(generation_id):
 
 
 def download_and_process_reg_images(url, target_directory):
+    print("starting to download reg images")
     if not os.path.exists(target_directory):
         os.makedirs(target_directory)
 
