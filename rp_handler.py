@@ -15,7 +15,7 @@ command = [
     "--train_data_dir=/job/input/img",
     "--reg_data_dir=/job/input/reg/man_4321_imgs_1024x1024px",
     "--resolution=1024,1024",
-    "--output_dir=/output/model",
+    "--output_dir=/job/output/model",
     "--logging_dir=/job/output/logs",
     "--network_alpha=1",
     "--save_model_as=safetensors",
@@ -133,7 +133,7 @@ def execute_command_and_log_output(event, command, log_file="accelerate_launch.l
             for line in process.stdout:
                 log.write(line)
                 print(line, end="")
-                update_number = count_files_with_extension("/output/model", "safetensors")
+                update_number = count_files_with_extension("/job/output/model", "safetensors")
                 runpod.serverless.progress_update(event, f"Progress {update_number}/8")
 
             process.wait()
