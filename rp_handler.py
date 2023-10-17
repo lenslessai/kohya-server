@@ -13,7 +13,7 @@ command = [
     "./kohya_ss/sdxl_train_network.py",
     "--pretrained_model_name_or_path=/sd-models/sd_xl_base_1.0.safetensors",
     "--train_data_dir=/job/input/img",
-    "--reg_data_dir=/job/input/reg/man_4321_imgs_1024x1024px",
+    "--reg_data_dir=/job/input/reg/1_man",
     "--resolution=1024,1024",
     "--output_dir=/job/output/model",
     "--logging_dir=/job/output/logs",
@@ -119,12 +119,13 @@ def download_and_process_reg_images(url, target_directory):
         with zipfile.ZipFile(file_name, 'r') as zip_ref:
             zip_ref.extractall(target_directory)
         print("Reg images file unzipped")
-        count_directory_files(target_directory)
-        count_directory_files(target_directory+"/man_4321_imgs_1024x1024px")
         os.remove(file_name)
+        os.rename(target_directory+"/man_4321_imgs_1024x1024px", target_directory+"/1_man")
+        count_directory_files(target_directory+"/1_man")
+
         print("Downloaded Reg images file removed")
     else:
-        raise ValueError("Failed to download reg images. Status code: {response.status_code}")
+        raise ValueError(f"Failed to download reg images. Status code: {response.status_code}")
 
 
 def count_files_with_extension(directory, extension):
@@ -163,7 +164,7 @@ def run_inference(event):
     '''
     model_id = event["input"]["model_id"]
     download_reg_imgs_url = "https://huggingface.co/MonsterMMORPG/SECourses/resolve/main/man_4321_imgs_1024x1024px.zip"
-    reg_imgs_target_directory = "/job/input/reg/1_man"
+    reg_imgs_target_directory = "/job/input/reg"
 
     downloadImages(model_id)
     download_and_process_reg_images(download_reg_imgs_url, reg_imgs_target_directory)
