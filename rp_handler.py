@@ -102,6 +102,36 @@ def downloadImages(generation_id):
     list_directory_files(local_directory)
     print("Download photos from S3 complete")
 
+def uploadToS3(to_upload_path, s3_target_path):
+    aws_access_key_id = os.environ.get('AWS_ACCESS_KEY')
+    aws_secret_access_key = os.environ.get('AWS_SECRET_KEY')
+    bucket_name = os.environ.get('BUCKET_PHOTOS')
+    region = 'us-east-1'
+
+    if aws_access_key_id is None or aws_secret_access_key is None:
+        raise ValueError("AWS credentials not found in environment variables.")
+
+    if bucket_name is None:
+        raise ValueError("S3 bucket name not found in environment variables.")
+
+    session = boto3.Session(
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region
+    )
+
+    s3 = session.client('s3')
+    for root, dirs, files in os.walk(to_upload_path):
+        for file in files:
+            local_file_path = os.path.join(root, file)
+            s3_object_key = os.path.join(s3_target_path, os.path.relpath(local_file_path, to_upload_path))
+
+            # Upload the file to S3
+            s3.upload_file(local_file_path, bucket_name, s3_object_key)
+
+            print(f'{local_file_path} has been uploaded to {bucket_name}/{s3_object_key}')
+
+ 
 
 def download_and_process_reg_images(url, target_directory):
     print("starting to download reg images")
@@ -170,6 +200,8 @@ def run_inference(event):
     download_and_process_reg_images(download_reg_imgs_url, reg_imgs_target_directory)
     execute_command_and_log_output(event, command)
     runpod.serverless.progress_update(event, f"Progress 8/8")
+    uploadToS3("/job/output/model", "s3_target_path/frompod")
+
     return "{}"
 
 
