@@ -53,6 +53,22 @@ command = [
 #                              Automatic Functions                             #
 # ---------------------------------------------------------------------------- #
 
+def list_directory_files(path='.'):
+    print("content of " + path +":")    
+    try:
+      directory_contents = os.listdir(path)
+      for item in directory_contents:
+        print(item)
+    except FileNotFoundError:
+        print(f"Directory '{path}' not found.")
+
+def count_directory_files(path='.'):
+    print("size of " + path +":")    
+    try:
+      print(len(os.listdir(path)))
+    except FileNotFoundError:
+      print(f"Directory '{path}' not found.")
+
 def downloadImages(generation_id):
     aws_access_key_id = os.environ.get('AWS_ACCESS_KEY')
     aws_secret_access_key = os.environ.get('AWS_SECRET_KEY')
@@ -83,10 +99,7 @@ def downloadImages(generation_id):
         local_file_path = os.path.join(local_directory, os.path.basename(object_key))
         s3.download_file(bucket_name, object_key, local_file_path)
 
-    directory_contents = os.listdir(local_directory)
-    print("content of {local_directory}:")
-    for item in directory_contents:
-        print(item)
+    list_directory_files(local_directory)
     print("Download photos from S3 complete")
 
 
@@ -106,7 +119,8 @@ def download_and_process_reg_images(url, target_directory):
         with zipfile.ZipFile(file_name, 'r') as zip_ref:
             zip_ref.extractall(target_directory)
         print("Reg images file unzipped")
-
+        count_directory_files(target_directory)
+        count_directory_files(target_directory+"/man_4321_imgs_1024x1024px")
         os.remove(file_name)
         print("Downloaded Reg images file removed")
     else:
