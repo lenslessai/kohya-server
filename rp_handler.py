@@ -13,7 +13,7 @@ command = [
     "./kohya_ss/sdxl_train_network.py",
     "--pretrained_model_name_or_path=/sd-models/sd_xl_base_1.0.safetensors",
     "--train_data_dir=/job/input/img",
-    "--reg_data_dir=/job/input/reg/1_man",
+    "--reg_data_dir=/job/input/reg",
     "--resolution=1024,1024",
     "--output_dir=/job/output/model",
     "--logging_dir=/job/output/logs",
@@ -23,13 +23,13 @@ command = [
     "--text_encoder_lr=0.0004",
     "--unet_lr=0.0004",
     "--network_dim=32",
-    "--output_name=runpod_model",
-    "--lr_scheduler_num_cycles=8",
+    #"--output_name=runpod_model",
+    #"--lr_scheduler_num_cycles=8", #epoch
     "--no_half_vae",
     "--learning_rate=0.0004",
     "--lr_scheduler=constant",
     "--train_batch_size=1",
-    "--max_train_steps=80",
+    #"--max_train_steps=80",
     "--save_every_n_epochs=1",
     "--mixed_precision=bf16",
     "--save_precision=bf16",
@@ -69,7 +69,7 @@ def count_directory_files(path='.'):
     except FileNotFoundError:
       print(f"Directory '{path}' not found.")
 
-def downloadImages(generation_id):
+def downloadImages(images_id, steps_per_image):
     aws_access_key_id = os.environ.get('AWS_ACCESS_KEY')
     aws_secret_access_key = os.environ.get('AWS_SECRET_KEY')
     bucket_name = os.environ.get('BUCKET_PHOTOS')
@@ -88,19 +88,22 @@ def downloadImages(generation_id):
     )
 
     s3 = session.client('s3')
-    local_directory = '/job/input/img/25_ohwx man'
+    local_directory = '/job/input/img/'+steps_per_image+'_ohwx man'
     os.makedirs(local_directory, exist_ok=True)
-    bucket_path = f"photos/{generation_id}/"
+    bucket_path = f"photos/{images_id}/"
     objects = s3.list_objects_v2(Bucket=bucket_name, Prefix=bucket_path)
+    downloaded_count = 0
     for obj in objects.get('Contents', []):
         object_key = obj['Key']
         if object_key == bucket_path:
             continue
         local_file_path = os.path.join(local_directory, os.path.basename(object_key))
         s3.download_file(bucket_name, object_key, local_file_path)
+        downloaded_count += 1
 
     list_directory_files(local_directory)
     print("Download photos from S3 complete")
+    return downloaded_count
 
 def uploadToS3(to_upload_path, s3_target_path):
     aws_access_key_id = os.environ.get('AWS_ACCESS_KEY')
@@ -172,6 +175,8 @@ def count_files_with_extension(directory, extension):
 
 
 def execute_command_and_log_output(event, command, log_file="accelerate_launch.log"):
+    print("executing command:")
+    print(command)
     with open(log_file, "w") as log:
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
@@ -188,19 +193,33 @@ def execute_command_and_log_output(event, command, log_file="accelerate_launch.l
             else:
                 raise Exception("accelerate command failed with return code: " + process.returncode)
 
+
+def add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name):
+    command.append("--lr_scheduler_num_cycles="+epochs)
+    command.append("--max_train_steps="+str(int(steps_per_image)*int(epochs)*int(image_amount)*2))
+    command.append("--output_name="+model_name)
+
+
+
 def run_inference(event):
     '''
     Run inference on a request.
     '''
-    model_id = event["input"]["model_id"]
+    user_id = event["input"]["user_id"]
+    steps_per_image = event["input"]["steps_per_image"]
+    epochs = event["input"]["epochs"]
+    images_id = event["input"]["images_id"]
+    model_name =  event["input"]["model_name"]
+
     download_reg_imgs_url = "https://huggingface.co/MonsterMMORPG/SECourses/resolve/main/man_4321_imgs_1024x1024px.zip"
     reg_imgs_target_directory = "/job/input/reg"
 
-    downloadImages(model_id)
+    image_amount = downloadImages(images_id, steps_per_image)
     download_and_process_reg_images(download_reg_imgs_url, reg_imgs_target_directory)
+    add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name)
     execute_command_and_log_output(event, command)
     runpod.serverless.progress_update(event, f"Progress 8/8")
-    uploadToS3("/job/output/model", "s3_target_path/frompod")
+    uploadToS3("/job/output/model", "models/"+user_id)
 
     return "{}"
 
@@ -215,8 +234,7 @@ def handler(event):
 
     json = run_inference(event)
 
-    # return the output that you want to be returned like pre-signed URLs to output artifacts
-    return json
+    return {"refresh_worker": True, "job_results": json}
 
 
 if __name__ == "__main__":
