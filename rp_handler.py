@@ -13,7 +13,7 @@ command = [
     "./kohya_ss/sdxl_train_network.py",
     "--pretrained_model_name_or_path=/sd-models/sd_xl_base_1.0.safetensors",
     "--train_data_dir=/job/input/img",
-    "--reg_data_dir=/job/input/reg",
+    #"--reg_data_dir=/job/input/reg",
     "--resolution=1024,1024",
     "--output_dir=/job/output/model",
     "--logging_dir=/job/output/logs",
@@ -69,7 +69,7 @@ def count_directory_files(path='.'):
     except FileNotFoundError:
       print(f"Directory '{path}' not found.")
 
-def downloadImages(images_id, steps_per_image):
+def downloadImages(images_id, steps_per_image, kind):
     aws_access_key_id = os.environ.get('AWS_ACCESS_KEY')
     aws_secret_access_key = os.environ.get('AWS_SECRET_KEY')
     bucket_name = os.environ.get('BUCKET_PHOTOS')
@@ -88,7 +88,11 @@ def downloadImages(images_id, steps_per_image):
     )
 
     s3 = session.client('s3')
-    local_directory = '/job/input/img/'+steps_per_image+'_ohwx man'
+    local_directory = ""
+    if kind == "man":
+      local_directory = '/job/input/img/'+steps_per_image+'_ohwx man'
+    elif kind == "woman":
+      local_directory = '/job/input/img/'+steps_per_image+'_ohwx woman'
     os.makedirs(local_directory, exist_ok=True)
     bucket_path = f"photos/{images_id}/"
     objects = s3.list_objects_v2(Bucket=bucket_name, Prefix=bucket_path)
@@ -194,12 +198,14 @@ def execute_command_and_log_output(event, command, log_file="accelerate_launch.l
                 raise Exception("accelerate command failed with return code: " + process.returncode)
 
 
-def add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name):
+def add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name, kind):
     command.append("--lr_scheduler_num_cycles="+epochs)
     command.append("--max_train_steps="+str(int(steps_per_image)*int(epochs)*int(image_amount)*2))
     command.append("--output_name="+model_name)
-
-
+    if kind == "man":
+      command.append("--reg_data_dir=job/input/man/reg")
+    elif kind == "woman":
+      command.append("--reg_data_dir=/job/input/woman/reg")
 
 def run_inference(event):
     '''
@@ -210,15 +216,14 @@ def run_inference(event):
     epochs = event["input"]["epochs"]
     images_id = event["input"]["images_id"]
     model_name =  event["input"]["model_name"]
+    kind =  event["input"]["kind"]
 
-    download_reg_imgs_url = "https://huggingface.co/MonsterMMORPG/SECourses/resolve/main/man_4321_imgs_1024x1024px.zip"
-    reg_imgs_target_directory = "/job/input/reg"
-
-    image_amount = downloadImages(images_id, steps_per_image)
-    download_and_process_reg_images(download_reg_imgs_url, reg_imgs_target_directory)
-    add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name)
+    if kind != "man" and kind != "woman":
+        raise Exception("kind is incorrect")
+    
+    image_amount = downloadImages(images_id, steps_per_image, kind)
+    add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name, kind)
     execute_command_and_log_output(event, command)
-    runpod.serverless.progress_update(event, f"Progress 8/8")
     uploadToS3("/job/output/model", "models/"+user_id)
 
     return "{}"

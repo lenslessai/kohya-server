@@ -15,6 +15,4 @@ mkdir -p /root/.cache/huggingface/accelerate
 mv /accelerate.yaml /root/.cache/huggingface/accelerate/default_config.yaml
 
 source /kohya_ss/venv/bin/activate
-pip install runpod
-pip install boto3
 python rp_handler.py 
