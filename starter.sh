@@ -8,7 +8,8 @@ export PYTHONUNBUFFERED=1
 echo "Container is running"
 
 curl https://raw.githubusercontent.com/lenslessai/start-model-creator-pod/main/rp_handler.py > rp_handler.py 
-
+ls -la /
+cat /accelerate.yaml
 # Configure accelerate
 echo "Configuring accelerate..."
 mkdir -p /root/.cache/huggingface/accelerate

@@ -23,5 +23,5 @@ RUN curl -L $WOMAN_REG_URL -o $REG_IMG_WOMAN_DIR/woman_3791_imgs_1024x1024px.zip
 RUN pip install runpod boto3
 COPY rp_handler.py /rp_handler.py
 COPY starter.sh /starter.sh
-
+RUN chmod 777 /starter.sh
 CMD [ "/starter.sh" ]

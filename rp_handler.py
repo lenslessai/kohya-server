@@ -5,15 +5,14 @@ import requests
 import boto3
 import subprocess
 import zipfile
+import sys
 
-# "--max_train_steps=6800",
 command = [
     "accelerate", "launch",
     "--num_cpu_threads_per_process=2",
     "./kohya_ss/sdxl_train_network.py",
     "--pretrained_model_name_or_path=/sd-models/sd_xl_base_1.0.safetensors",
     "--train_data_dir=/job/input/img",
-    #"--reg_data_dir=/job/input/reg",
     "--resolution=1024,1024",
     "--output_dir=/job/output/model",
     "--logging_dir=/job/output/logs",
@@ -23,13 +22,10 @@ command = [
     "--text_encoder_lr=0.0004",
     "--unet_lr=0.0004",
     "--network_dim=32",
-    #"--output_name=runpod_model",
-    #"--lr_scheduler_num_cycles=8", #epoch
     "--no_half_vae",
     "--learning_rate=0.0004",
     "--lr_scheduler=constant",
     "--train_batch_size=1",
-    #"--max_train_steps=80",
     "--save_every_n_epochs=1",
     "--mixed_precision=bf16",
     "--save_precision=bf16",
@@ -188,7 +184,7 @@ def execute_command_and_log_output(event, command, log_file="accelerate_launch.l
                 log.write(line)
                 print(line, end="")
                 update_number = count_files_with_extension("/job/output/model", "safetensors")
-                runpod.serverless.progress_update(event, f"Progress {update_number}/8")
+                #runpod.serverless.progress_update(event, f"Progress {update_number}/8")
 
             process.wait()
 
@@ -230,9 +226,34 @@ def run_inference(event):
 
 
 # ---------------------------------------------------------------------------- #
+#                                Server Handler                                #
+# ---------------------------------------------------------------------------- #
+
+def server_handler():
+    event = {}
+    event["input"] = {}
+    event["input"]["user_id"] = os.environ.get('USER_ID')
+    event["input"]["steps_per_image"] = os.environ.get('STEPS_PER_IMAGE')
+    event["input"]["epochs"] =  os.environ.get('EPOCHS')
+    event["input"]["images_id"] =  os.environ.get('IMAGES_ID')
+    event["input"]["model_name"] = os.environ.get('MODEL_NAME')
+    event["input"]["kind"] = os.environ.get('KIND')
+
+    print("user_id: " + event["input"]["user_id"])
+    print("steps_per_image: " + event["input"]["steps_per_image"])
+    print("epochs: " + event["input"]["epochs"])
+    print("images_id: " + event["input"]["images_id"])
+    print("model_name: " + event["input"]["model_name"])
+    print("kind: " + event["input"]["kind"])
+
+    run_inference(event)
+    stop_pod_command = ["runpodctl", "stop", "pod", os.environ.get('RUNPOD_POD_ID')]
+    subprocess.Popen(stop_pod_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+# ---------------------------------------------------------------------------- #
 #                                RunPod Handler                                #
 # ---------------------------------------------------------------------------- #
-def handler(event):
+def serverless_handler(event):
     '''
     This is the handler function that will be called by the serverless.
     '''
@@ -244,5 +265,7 @@ def handler(event):
 
 if __name__ == "__main__":
     print("WebUI API Service is ready. Starting RunPod...")
-
-    runpod.serverless.start({"handler": handler})
+    if os.environ.get('SERVERLESS') == 'true':
+      runpod.serverless.start({"handler": serverless_handler})
+    else:
+      server_handler()

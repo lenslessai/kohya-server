@@ -6,7 +6,7 @@ echo "Container is running"
 # Configure accelerate
 echo "Configuring accelerate..."
 mkdir -p /root/.cache/huggingface/accelerate
-mv /accelerate.yaml /root/.cache/huggingface/accelerate/default_config.yaml
+cp /accelerate.yaml /root/.cache/huggingface/accelerate/default_config.yaml
 pip install runpod
 pip install boto3
 
