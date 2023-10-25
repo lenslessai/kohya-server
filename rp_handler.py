@@ -189,7 +189,7 @@ def execute_command_and_log_output(event, command, log_file="accelerate_launch.l
             process.wait()
 
             if process.returncode == 0:
-                print("Command executed successfully")
+                print("accelerate command executed successfully")
             else:
                 raise Exception("accelerate command failed with return code: " + process.returncode)
 
@@ -225,6 +225,17 @@ def run_inference(event):
     return "{}"
 
 
+def stop_pod(pod_id):
+    print("stopping pod with id=" + pod_id)
+    stop_pod_command = ["runpodctl", "stop", "pod", pod_id]
+    result = subprocess.run(stop_pod_command, check=True)
+    if result.returncode == 0:
+        print("'runpodctl remove pod' command executed successfully")
+        print("Output:\n", result.stdout)
+    else:
+        print("'runpodctl remove pod' command")
+        print("Error message:\n", result.stderr)
+
 # ---------------------------------------------------------------------------- #
 #                                Server Handler                                #
 # ---------------------------------------------------------------------------- #
@@ -245,10 +256,11 @@ def server_handler():
     print("images_id: " + event["input"]["images_id"])
     print("model_name: " + event["input"]["model_name"])
     print("kind: " + event["input"]["kind"])
+    print("RUNPOD_POD_ID: " + os.environ.get('RUNPOD_POD_ID'))
 
     run_inference(event)
-    stop_pod_command = ["runpodctl", "stop", "pod", os.environ.get('RUNPOD_POD_ID')]
-    subprocess.Popen(stop_pod_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    stop_pod(os.environ.get('RUNPOD_POD_ID'))
+   
 
 # ---------------------------------------------------------------------------- #
 #                                RunPod Handler                                #
