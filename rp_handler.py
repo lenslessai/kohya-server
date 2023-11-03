@@ -227,7 +227,7 @@ def run_inference(event):
 
 def stop_pod(pod_id):
     print("stopping pod with id=" + pod_id)
-    stop_pod_command = ["runpodctl", "stop", "pod", pod_id]
+    stop_pod_command = ["runpodctl", "remove", "pod", pod_id]
     result = subprocess.run(stop_pod_command, check=True)
     if result.returncode == 0:
         print("'runpodctl remove pod' command executed successfully")

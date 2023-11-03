@@ -15,5 +15,8 @@ echo "Configuring accelerate..."
 mkdir -p /root/.cache/huggingface/accelerate
 mv /accelerate.yaml /root/.cache/huggingface/accelerate/default_config.yaml
 
+echo "configuring cuda libs"
+apt update && apt install -y libcudnn8=8.9.5.29-1+cuda11.8 libcudnn8-dev=8.9.5.29-1+cuda11.8
+
 source /kohya_ss/venv/bin/activate
 python rp_handler.py 
