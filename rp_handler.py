@@ -194,10 +194,13 @@ def execute_command_and_log_output(event, command, log_file="accelerate_launch.l
                 raise Exception("accelerate command failed with return code: " + process.returncode)
 
 
-def add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name, kind):
+def add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name, kind, enable_bucket):
     command.append("--lr_scheduler_num_cycles="+epochs)
     command.append("--max_train_steps="+str(int(steps_per_image)*int(epochs)*int(image_amount)*2))
     command.append("--output_name="+model_name)
+    if enable_bucket == "true":
+      command.append("--enable_bucket")
+    
     if kind == "man":
       command.append("--reg_data_dir=job/input/man/reg")
     elif kind == "woman":
@@ -213,12 +216,12 @@ def run_inference(event):
     images_id = event["input"]["images_id"]
     model_name =  event["input"]["model_name"]
     kind =  event["input"]["kind"]
-
+    enable_bucket = event["input"]["enable_bucket"]
     if kind != "man" and kind != "woman":
         raise Exception("kind is incorrect")
     
     image_amount = downloadImages(images_id, steps_per_image, kind)
-    add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name, kind)
+    add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name, kind, enable_bucket)
     execute_command_and_log_output(event, command)
     uploadToS3("/job/output/model", "models/"+user_id)
 
@@ -249,6 +252,7 @@ def server_handler():
     event["input"]["images_id"] =  os.environ.get('IMAGES_ID')
     event["input"]["model_name"] = os.environ.get('MODEL_NAME')
     event["input"]["kind"] = os.environ.get('KIND')
+    event["input"]["enable_bucket"] = os.environ.get('ENABLE_BUCKET')
 
     print("user_id: " + event["input"]["user_id"])
     print("steps_per_image: " + event["input"]["steps_per_image"])
@@ -256,11 +260,12 @@ def server_handler():
     print("images_id: " + event["input"]["images_id"])
     print("model_name: " + event["input"]["model_name"])
     print("kind: " + event["input"]["kind"])
+    print("enable_bucket: " + event["input"]["enable_bucket"])
     print("RUNPOD_POD_ID: " + os.environ.get('RUNPOD_POD_ID'))
 
     run_inference(event)
     stop_pod(os.environ.get('RUNPOD_POD_ID'))
-   
+
 
 # ---------------------------------------------------------------------------- #
 #                                RunPod Handler                                #
