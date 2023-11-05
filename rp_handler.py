@@ -6,6 +6,7 @@ import boto3
 import subprocess
 import zipfile
 import sys
+import crop_and_resize from tools
 
 command = [
     "accelerate", "launch",
@@ -49,6 +50,22 @@ command = [
 #                              Automatic Functions                             #
 # ---------------------------------------------------------------------------- #
 
+def getAWSSession():
+    aws_access_key_id = os.environ.get('AWS_ACCESS_KEY')
+    aws_secret_access_key = os.environ.get('AWS_SECRET_KEY')
+    region = 'us-east-1'
+
+    if aws_access_key_id is None or aws_secret_access_key is None:
+        raise ValueError("AWS credentials not found in environment variables.")
+
+    session = boto3.Session(
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region
+    )
+    return session
+
+
 def list_directory_files(path='.'):
     print("content of " + path +":")    
     try:
@@ -65,32 +82,18 @@ def count_directory_files(path='.'):
     except FileNotFoundError:
       print(f"Directory '{path}' not found.")
 
-def downloadImages(images_id, steps_per_image, kind):
-    aws_access_key_id = os.environ.get('AWS_ACCESS_KEY')
-    aws_secret_access_key = os.environ.get('AWS_SECRET_KEY')
-    bucket_name = os.environ.get('BUCKET_PHOTOS')
-    region = 'us-east-1'
-
-    if aws_access_key_id is None or aws_secret_access_key is None:
-        raise ValueError("AWS credentials not found in environment variables.")
-
+def downloadImagesFromS3(photos_directory, steps_per_image, kind, bucket_name):
     if bucket_name is None:
         raise ValueError("S3 bucket name not found in environment variables.")
 
-    session = boto3.Session(
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        region_name=region
-    )
-
-    s3 = session.client('s3')
+    s3 = getAWSSession().client('s3')
     local_directory = ""
     if kind == "man":
       local_directory = '/job/input/img/'+steps_per_image+'_ohwx man'
     elif kind == "woman":
       local_directory = '/job/input/img/'+steps_per_image+'_ohwx woman'
     os.makedirs(local_directory, exist_ok=True)
-    bucket_path = f"photos/{images_id}/"
+    bucket_path = f"{photos_directory}/"
     objects = s3.list_objects_v2(Bucket=bucket_name, Prefix=bucket_path)
     downloaded_count = 0
     for obj in objects.get('Contents', []):
@@ -99,31 +102,18 @@ def downloadImages(images_id, steps_per_image, kind):
             continue
         local_file_path = os.path.join(local_directory, os.path.basename(object_key))
         s3.download_file(bucket_name, object_key, local_file_path)
+        crop_and_resize(local_file_path, (1024, 1024))
         downloaded_count += 1
 
     list_directory_files(local_directory)
     print("Download photos from S3 complete")
     return downloaded_count
 
-def uploadToS3(to_upload_path, s3_target_path):
-    aws_access_key_id = os.environ.get('AWS_ACCESS_KEY')
-    aws_secret_access_key = os.environ.get('AWS_SECRET_KEY')
-    bucket_name = os.environ.get('BUCKET_PHOTOS')
-    region = 'us-east-1'
-
-    if aws_access_key_id is None or aws_secret_access_key is None:
-        raise ValueError("AWS credentials not found in environment variables.")
-
+def uploadFilesToS3(to_upload_path, s3_target_path, bucket_name):
     if bucket_name is None:
         raise ValueError("S3 bucket name not found in environment variables.")
 
-    session = boto3.Session(
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        region_name=region
-    )
-
-    s3 = session.client('s3')
+    s3 = getAWSSession().client('s3')
     for root, dirs, files in os.walk(to_upload_path):
         for file in files:
             local_file_path = os.path.join(root, file)
@@ -133,33 +123,6 @@ def uploadToS3(to_upload_path, s3_target_path):
             s3.upload_file(local_file_path, bucket_name, s3_object_key)
 
             print(f'{local_file_path} has been uploaded to {bucket_name}/{s3_object_key}')
-
- 
-
-def download_and_process_reg_images(url, target_directory):
-    print("starting to download reg images")
-    if not os.path.exists(target_directory):
-        os.makedirs(target_directory)
-
-    file_name = os.path.join(target_directory, os.path.basename(url))
-
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(file_name, 'wb') as file:
-            file.write(response.content)
-        print(f"Reg images file downloaded to {file_name}")
-
-        with zipfile.ZipFile(file_name, 'r') as zip_ref:
-            zip_ref.extractall(target_directory)
-        print("Reg images file unzipped")
-        os.remove(file_name)
-        os.rename(target_directory+"/man_4321_imgs_1024x1024px", target_directory+"/1_man")
-        count_directory_files(target_directory+"/1_man")
-
-        print("Downloaded Reg images file removed")
-    else:
-        raise ValueError(f"Failed to download reg images. Status code: {response.status_code}")
-
 
 def count_files_with_extension(directory, extension):
     try:
@@ -210,20 +173,26 @@ def run_inference(event):
     '''
     Run inference on a request.
     '''
-    user_id = event["input"]["user_id"]
     steps_per_image = event["input"]["steps_per_image"]
     epochs = event["input"]["epochs"]
-    images_id = event["input"]["images_id"]
-    model_name =  event["input"]["model_name"]
     kind =  event["input"]["kind"]
     enable_bucket = event["input"]["enable_bucket"]
     if kind != "man" and kind != "woman":
         raise Exception("kind is incorrect")
     
-    image_amount = downloadImages(images_id, steps_per_image, kind)
+    # input
+    photos_bucket = event["input"]["photos_bucket"]
+    photos_directory = event["input"]["photos_directory"]
+
+    # output
+    models_bucket = event["input"]["models_bucket"]
+    models_directory = event["input"]["models_directory"] 
+    model_name = event["input"]["model_name"]
+
+    image_amount = downloadImagesFromS3(photos_directory, steps_per_image, kind, photos_bucket)
     add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name, kind, enable_bucket)
     execute_command_and_log_output(event, command)
-    uploadToS3("/job/output/model", "models/"+user_id)
+    uploadFilesToS3("/job/output/model", models_directory, models_bucket)
 
     return "{}"
 
@@ -246,21 +215,35 @@ def stop_pod(pod_id):
 def server_handler():
     event = {}
     event["input"] = {}
-    event["input"]["user_id"] = os.environ.get('USER_ID')
+
+    # parameters
     event["input"]["steps_per_image"] = os.environ.get('STEPS_PER_IMAGE')
     event["input"]["epochs"] =  os.environ.get('EPOCHS')
-    event["input"]["images_id"] =  os.environ.get('IMAGES_ID')
-    event["input"]["model_name"] = os.environ.get('MODEL_NAME')
     event["input"]["kind"] = os.environ.get('KIND')
     event["input"]["enable_bucket"] = os.environ.get('ENABLE_BUCKET')
 
-    print("user_id: " + event["input"]["user_id"])
+    # input
+    event["input"]["photos_bucket"] = os.environ.get('PHOTOS_BUCKET')
+    event["input"]["photos_directory"] = os.environ.get('PHOTOS_DIRECTORY') # user_hash/photos_hash
+
+    # output
+    event["input"]["models_bucket"] = os.environ.get('MODELS_BUCKET')
+    event["input"]["models_directory"] = os.environ.get('MODELS_DIRECTORY')
+    event["input"]["model_name"] = os.environ.get('MODEL_NAME')
+
+
     print("steps_per_image: " + event["input"]["steps_per_image"])
     print("epochs: " + event["input"]["epochs"])
-    print("images_id: " + event["input"]["images_id"])
-    print("model_name: " + event["input"]["model_name"])
     print("kind: " + event["input"]["kind"])
     print("enable_bucket: " + event["input"]["enable_bucket"])
+
+    print("photos_bucket: " + event["input"]["photos_bucket"])
+    print("photos_directory: " + event["input"]["photos_directory"])
+
+    print("models_bucket: " + event["input"]["models_bucket"])
+    print("models_directory: " + event["input"]["models_directory"])
+    print("model_name: " + event["input"]["model_name"])
+
     print("RUNPOD_POD_ID: " + os.environ.get('RUNPOD_POD_ID'))
 
     run_inference(event)

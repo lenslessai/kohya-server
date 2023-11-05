@@ -21,7 +21,7 @@ RUN curl -L $WOMAN_REG_URL -o $REG_IMG_WOMAN_DIR/woman_3791_imgs_1024x1024px.zip
     rm $REG_IMG_WOMAN_DIR/woman_3791_imgs_1024x1024px.zip
 
 RUN pip install runpod boto3
-COPY rp_handler.py /rp_handler.py
-COPY starter.sh /starter.sh
+RUN apt-get update && apt-get install -y python3-opencv
+COPY . .
 RUN chmod 777 /starter.sh
 CMD [ "/starter.sh" ]
