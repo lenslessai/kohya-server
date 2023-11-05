@@ -107,7 +107,7 @@ def downloadImagesFromS3(photos_directory, steps_per_image, kind, bucket_name):
 
     list_directory_files(local_directory)
     print("Download photos from S3 complete")
-    return downloaded_count
+    return downloaded_count, local_directory
 
 def uploadFilesToS3(to_upload_path, s3_target_path, bucket_name):
     if bucket_name is None:
@@ -184,12 +184,17 @@ def run_inference(event):
     photos_bucket = event["input"]["photos_bucket"]
     photos_directory = event["input"]["photos_directory"]
 
-    # output
+    # output models
     models_bucket = event["input"]["models_bucket"]
     models_directory = event["input"]["models_directory"] 
     model_name = event["input"]["model_name"]
 
-    image_amount = downloadImagesFromS3(photos_directory, steps_per_image, kind, photos_bucket)
+    # output cropped photos
+    cropped_photos_bucket = event["input"]["cropped_photos_bucket"]
+    cropped_photos_directory = event["input"]["cropped_photos_directory"] 
+
+    image_amount, local_directory = downloadImagesFromS3(photos_directory, steps_per_image, kind, photos_bucket)
+    uploadFilesToS3(local_directory, cropped_photos_directory, cropped_photos_bucket)
     add_parameter_to_command(command, steps_per_image, epochs, image_amount, model_name, kind, enable_bucket)
     execute_command_and_log_output(event, command)
     uploadFilesToS3("/job/output/model", models_directory, models_bucket)
@@ -226,11 +231,14 @@ def server_handler():
     event["input"]["photos_bucket"] = os.environ.get('PHOTOS_BUCKET')
     event["input"]["photos_directory"] = os.environ.get('PHOTOS_DIRECTORY') # user_hash/photos_hash
 
-    # output
+    # output models
     event["input"]["models_bucket"] = os.environ.get('MODELS_BUCKET')
     event["input"]["models_directory"] = os.environ.get('MODELS_DIRECTORY')
     event["input"]["model_name"] = os.environ.get('MODEL_NAME')
 
+    # output cropped photos
+    event["input"]["cropped_photos_bucket"] = os.environ.get('CROPPED_PHOTOS_BUCKET')
+    event["input"]["cropped_photos_directory"] = os.environ.get('PHOTOS_DIRECTORY')
 
     print("steps_per_image: " + event["input"]["steps_per_image"])
     print("epochs: " + event["input"]["epochs"])
@@ -243,6 +251,9 @@ def server_handler():
     print("models_bucket: " + event["input"]["models_bucket"])
     print("models_directory: " + event["input"]["models_directory"])
     print("model_name: " + event["input"]["model_name"])
+
+    print("cropped_photos_bucket: " + event["input"]["cropped_photos_bucket"])
+    print("cropped_photos_directory: " + event["input"]["cropped_photos_directory"])
 
     print("RUNPOD_POD_ID: " + os.environ.get('RUNPOD_POD_ID'))
 
